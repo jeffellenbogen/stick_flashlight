@@ -16,9 +16,15 @@
 
 #define NUMPIXELS  8
 
+
 #define POT_PIN    2   // Tiny
 //#define POT_PIN    A0    // Uno
 
+int pixelState[NUMPIXELS];
+int cylonSpeed = 1;
+int cylonIndex = 0;
+
+#define CYLONSIZE 3
 
 Adafruit_NeoPixel pixels = Adafruit_NeoPixel(NUMPIXELS, LED_PIN, NEO_GRB+NEO_KHZ800);
 
@@ -45,6 +51,8 @@ void fillAll( uint32_t color )
     pixels.setPixelColor(i, color);
   }
 }
+
+
 
 
 /*================================================
@@ -115,16 +123,21 @@ void setup()
     
     pixels.begin();
 
-    for (i=0; i<NUMPIXELS; i++)
+    for (int i=0; i < NUMPIXELS; i++)
     {
-      pixels.setPixelColor(i,led_color);
-      delay(50);
+      if (i < CYLONSIZE)
+      {
+         pixelState[i] = 1;
+         pixels.setPixelColor(i,led_color);
+      }
+      else
+      {
+         pixelState[i] = 0; 
+         pixels.setPixelColor(i,0);
+      }    
+     // delay(50);
       pixels.show();
     }
-    delay(100);
-    
-    pixels.show();
-    delay(1000);
 }
 
 uint32_t colors[] = 
@@ -135,77 +148,46 @@ uint32_t colors[] =
   COLOR_WHITE
 };
 
+void cylonShift(){
+  int tempFirstPixel, tempLastPixel;
+  cylonIndex = cylonIndex + cylonSpeed;
+  if (cylonSpeed == 1)
+  {
+  for (int i = NUMPIXELS-1; i > 0; i--)
+    { 
+      tempLastPixel = pixelState[NUMPIXELS-1];
+      pixelState[i] = pixelState[i-1];
+    }
+    pixelState[0] = tempLastPixel;   
+  }
+  else
+  {
+  for (int i = 0; i < NUMPIXELS-1; i++)
+    { 
+      tempFirstPixel = pixelState[0];
+      pixelState[i]=pixelState[i+1];
+    }
+    pixelState[NUMPIXELS-1]=tempFirstPixel;
+   }
+  if ((cylonIndex >= NUMPIXELS - 1 - CYLONSIZE) || (cylonIndex <= 0))
+    cylonSpeed = cylonSpeed * -1;
+}
+
+void showLEDs(){
+   uint32_t led_color=COLOR_BLUE;
+   for (int i=0; i < NUMPIXELS; i++)
+    {
+    if (pixelState[i] == 1)
+      pixels.setPixelColor(i,led_color);
+    else
+      pixels.setPixelColor(i,0);
+    }
+    pixels.show();
+}
+
 void loop()
 {
-  static int color_index = 0;
-  int pot_val;
-  uint32_t brightness;
-  uint32_t color;
-
-  pot_val = analogRead(POT_PIN);
-
-  /* Brightness:  we've got a 24-bit composite RGB value.
-   * shift the 0-1023 from the pot to be a 1 byte value , then
-   * shift and mask into the right color.  Note for white, we'll build
-   * a composite.  
-   */
-  brightness = pot_val >> 2;
-
-  //Serial.print("bright = ");
-  //Serial.println(brightness, HEX);
-
-  if (buttonPressed())
-  {
-    color_index++;
-    if (color_index == 4) color_index = 0;
-  }
-
-  /* there's probably a more elegant way of doing this... */
-  switch (color_index)
-  {
-    case 1:  // Blue
-      /* Blue is the LSByte...no transform needed */
-      color = brightness;
-
-      //Serial.println("blue");
-      
-    break;
-
-    case 2: // Green
-      /* green is shifted up 2 bytes */
-      color = brightness << 8;
-      
-      //Serial.println("green");
-      
-    break;
-
-    case 0:  // RED
-      /* red is shifed up 4 bytes */
-      color = brightness << 16;
-
-      // Serial.println("red");
-      
-    break;
-
-    case 3: // White
-      /* white is fun...each RGB needs to be equal */
-      color = brightness;        // blue byte
-      color |= brightness << 8;  //green byte
-      color |= brightness << 16; //red byte
-
-      // Serial.println("white");
-    break;
-
-    //default:
-      // Serial.print("unknown color index: ");
-      // Serial.println(color_index);
-  }
-
-  // Serial.print("Color = ");
-  // Serial.println(color, HEX);
-  
-  fillAll(color);
-  pixels.show();
-
-  delay(1);
+  cylonShift();
+  showLEDs();
+  delay(200);
 }
